@@ -1,0 +1,67 @@
+version: '3'
+services:
+    postgres:
+        image: postgres:13
+        
+        env_file:
+            - .env
+        volumes:
+            - "D:/Learn_UET/Learn Data Engineer/DE_Zoomcamp_2023/airflow_postgres_data:/var/lib/postgresql/data"
+        healthcheck:
+            test: pg_isready -U airflow
+            interval: 5s
+            retries: 5
+        restart: always
+        deploy:
+            resources:
+                limits: 
+                    memory: 300M
+
+    scheduler:
+        build: .
+        command: scheduler
+        restart: on-failure
+        depends_on:
+            - postgres
+        env_file:
+            - .env
+        volumes:
+            - ./dags:/opt/airflow/dags
+            - ./logs:/opt/airflow/logs
+            - ./plugins:/opt/airflow/plugins
+            - ./scripts:/opt/airflow/scripts
+            - D:/Learn_UET/Learn Data Engineer/DE_Zoomcamp_2023/Week2/google_credentials.json:/.google/credentials
+        deploy:
+            resources:
+                limits: 
+                    memory: 1g
+    webserver:
+        build: .
+        entrypoint: ./scripts/entrypoint.sh
+        restart: on-failure
+        depends_on:
+            - postgres
+            - scheduler
+        env_file:
+            - .env
+        volumes:
+            - ./dags:/opt/airflow/dags
+            - ./logs:/opt/airflow/logs
+            - ./plugins:/opt/airflow/plugins
+            - D:/Learn_UET/Learn Data Engineer/DE_Zoomcamp_2023/Week2/google_credentials.json:/.google/credentials:ro
+            - ./scripts:/opt/airflow/scripts
+
+        user: "${AIRFLOW_UID}"
+        ports:
+            - "8080:8080"
+        healthcheck:
+            test: [ "CMD-SHELL", "[ -f /home/airflow/airflow-webserver.pid ]" ]
+            interval: 30s
+            timeout: 30s
+            retries: 3
+        deploy:
+            resources:
+                limits: 
+                    memory: 1300m
+volumes:
+  postgres-db-volume:
